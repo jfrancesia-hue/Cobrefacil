@@ -1,0 +1,287 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id         String    @id @default(cuid())
+  email      String    @unique
+  name       String?
+  supabaseId String    @unique
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  companies  Company[]
+}
+
+model Company {
+  id       String  @id @default(cuid())
+  name     String
+  slug     String  @unique
+  logo     String?
+  phone    String?
+  whatsapp String?
+  email    String?
+  website  String?
+  industry String?
+
+  currency              String   @default("ARS")
+  timezone              String   @default("America/Argentina/Buenos_Aires")
+  defaultGraceDays      Int      @default(5)
+  defaultLateFeePercent Decimal? @db.Decimal(5, 2)
+
+  mpAccessToken String?
+  mpPublicKey   String?
+
+  plan           PlanType @default(STARTER)
+  planExpiresAt  DateTime?
+  commissionRate Decimal  @default(0.03) @db.Decimal(4, 3)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  debtors   Debtor[]
+  debts     Debt[]
+  sequences CollectionSequence[]
+  messages  CollectionMessage[]
+  payments  Payment[]
+  campaigns Campaign[]
+  analytics CollectionAnalytics[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum PlanType {
+  STARTER
+  GROWTH
+  SCALE
+}
+
+model Debtor {
+  id         String  @id @default(cuid())
+  name       String
+  email      String?
+  phone      String?
+  whatsapp   String?
+  externalId String?
+
+  riskScore       Int     @default(50)
+  avgPaymentDelay Int     @default(0)
+  totalDebt       Decimal @default(0) @db.Decimal(12, 2)
+  totalPaid       Decimal @default(0) @db.Decimal(12, 2)
+
+  bestContactChannel String?
+  bestContactTime    String?
+  responseRate       Decimal @default(0) @db.Decimal(5, 2)
+
+  tags         String[]
+  notes        String?
+  customFields Json?
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  debts     Debt[]
+  messages  CollectionMessage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, externalId])
+  @@unique([companyId, email])
+}
+
+model Debt {
+  id             String     @id @default(cuid())
+  concept        String
+  amount         Decimal    @db.Decimal(12, 2)
+  originalAmount Decimal    @db.Decimal(12, 2)
+  lateFee        Decimal    @default(0) @db.Decimal(12, 2)
+  discount       Decimal    @default(0) @db.Decimal(12, 2)
+  dueDate        DateTime
+  status         DebtStatus @default(PENDING)
+
+  paidAmount    Decimal   @default(0) @db.Decimal(12, 2)
+  paidAt        DateTime?
+  paymentMethod String?
+
+  mpPreferenceId String?
+  mpPaymentLink  String?
+  mpPaymentId    String?
+
+  externalId String?
+  metadata   Json?
+
+  debtorId  String
+  debtor    Debtor  @relation(fields: [debtorId], references: [id], onDelete: Cascade)
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  messages CollectionMessage[]
+  payments Payment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum DebtStatus {
+  PENDING
+  DUE
+  OVERDUE
+  PAID
+  PARTIAL
+  WRITTEN_OFF
+  CANCELLED
+}
+
+model CollectionSequence {
+  id        String  @id @default(cuid())
+  name      String
+  isActive  Boolean @default(true)
+  isDefault Boolean @default(false)
+
+  steps CollectionStep[]
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CollectionStep {
+  id          String      @id @default(cuid())
+  sortOrder   Int
+  triggerDays Int
+  channel     StepChannel
+
+  subject         String?
+  messageTemplate String
+
+  useAI  Boolean @default(false)
+  aiTone String?
+
+  onlyIfUnpaid    Boolean @default(true)
+  skipIfContacted Boolean @default(false)
+
+  sequenceId String
+  sequence   CollectionSequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+}
+
+enum StepChannel {
+  WHATSAPP
+  EMAIL
+  SMS
+}
+
+model CollectionMessage {
+  id      String        @id @default(cuid())
+  channel StepChannel
+  content String
+  subject String?
+  status  MessageStatus @default(PENDING)
+
+  sentAt      DateTime?
+  deliveredAt DateTime?
+  readAt      DateTime?
+  error       String?
+
+  aiPersonalized   Boolean @default(false)
+  originalTemplate String?
+
+  debtorId  String
+  debtor    Debtor  @relation(fields: [debtorId], references: [id], onDelete: Cascade)
+  debtId    String?
+  debt      Debt?   @relation(fields: [debtId], references: [id])
+  stepId    String?
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+enum MessageStatus {
+  PENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  BOUNCED
+}
+
+model Payment {
+  id     String        @id @default(cuid())
+  amount Decimal       @db.Decimal(12, 2)
+  method PaymentMethod
+  status PaymentStatus @default(PENDING)
+
+  mpPaymentId String?
+  mpStatus    String?
+  receiptUrl  String?
+  notes       String?
+
+  debtId    String
+  debt      Debt    @relation(fields: [debtId], references: [id], onDelete: Cascade)
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+enum PaymentMethod {
+  MERCADOPAGO
+  TRANSFER
+  CASH
+  DEBIT
+  OTHER
+}
+
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REFUNDED
+}
+
+model Campaign {
+  id     String         @id @default(cuid())
+  name   String
+  status CampaignStatus @default(DRAFT)
+
+  filters         Json
+  channel         StepChannel
+  messageTemplate String
+  useAI           Boolean @default(false)
+
+  totalTargeted   Int     @default(0)
+  totalSent       Int     @default(0)
+  totalDelivered  Int     @default(0)
+  totalPaid       Int     @default(0)
+  amountRecovered Decimal @default(0) @db.Decimal(12, 2)
+  executedAt      DateTime?
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  EXECUTING
+  COMPLETED
+  CANCELLED
+}
+
+model CollectionAnalytics {
+  id        String   @id @default(cuid())
+  type      String
+  metadata  Json?
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
