@@ -15,6 +15,7 @@ import {
   BarChart3,
   Settings,
   Zap,
+  Bot,
 } from "lucide-react";
 
 const navItems = [
@@ -24,6 +25,7 @@ const navItems = [
   { href: "/sequences", label: "Secuencias", icon: Layers },
   { href: "/campaigns", label: "Campañas", icon: Megaphone },
   { href: "/messages", label: "Mensajes", icon: MessageSquare },
+  { href: "/conversations", label: "Agente IA", icon: Bot },
   { href: "/payments", label: "Pagos", icon: CreditCard },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
 ];

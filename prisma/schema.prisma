@@ -49,6 +49,7 @@ model Company {
   payments  Payment[]
   campaigns Campaign[]
   analytics CollectionAnalytics[]
+  conversations AgentConversation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -85,6 +86,7 @@ model Debtor {
   company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
   debts     Debt[]
   messages  CollectionMessage[]
+  conversations AgentConversation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -284,4 +286,49 @@ model CollectionAnalytics {
   companyId String
   company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
+}
+
+model AgentConversation {
+  id       String              @id @default(cuid())
+  status   ConversationStatus  @default(ACTIVE)
+  channel  StepChannel
+  turnCount Int                @default(0)
+  escalated Boolean            @default(false)
+  escalationReason String?
+  resolvedAt DateTime?
+
+  debtorId  String
+  debtor    Debtor  @relation(fields: [debtorId], references: [id], onDelete: Cascade)
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  messages AgentMessage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum ConversationStatus {
+  ACTIVE
+  RESOLVED
+  ESCALATED
+  CLOSED
+}
+
+model AgentMessage {
+  id      String      @id @default(cuid())
+  role    AgentRole
+  content String
+  toolCalls Json?
+
+  conversationId String
+  conversation   AgentConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+enum AgentRole {
+  USER
+  ASSISTANT
+  TOOL
 }
