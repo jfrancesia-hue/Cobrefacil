@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -31,8 +31,14 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  // Rutas públicas
-  const publicPaths = ["/login", "/register", "/pay/", "/api/mercadopago", "/api/whatsapp"];
+  const publicPaths = [
+    "/login",
+    "/register",
+    "/onboarding",
+    "/pay/",
+    "/api/mercadopago",
+    "/api/whatsapp",
+  ];
   const isPublic = publicPaths.some((p) => pathname.startsWith(p));
 
   if (!user && !isPublic) {

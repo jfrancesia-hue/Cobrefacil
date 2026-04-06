@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
+import { requireCompany, isAuthError } from "@/lib/api-auth";
 import { z } from "zod";
 import { parse, isValid } from "date-fns";
 
@@ -30,20 +30,9 @@ function parseDate(dateStr: string): Date {
 }
 
 export async function POST(req: Request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-
-  const dbUser = await prisma.user.findUnique({
-    where: { supabaseId: user.id },
-    include: { companies: { take: 1 } },
-  });
-  if (!dbUser?.companies[0]) {
-    return NextResponse.json({ error: "Sin empresa" }, { status: 400 });
-  }
-  const company = dbUser.companies[0];
+  const auth = await requireCompany();
+  if (isAuthError(auth)) return auth;
+  const { company } = auth;
 
   const body = await req.json();
   const parsed = bodySchema.safeParse(body);
@@ -51,57 +40,67 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Datos inválidos", details: parsed.error.flatten() }, { status: 400 });
   }
 
+  const now = new Date();
   let created = 0;
   let debtsCreated = 0;
 
-  for (const row of parsed.data.rows) {
-    let dueDate: Date;
-    try {
-      dueDate = parseDate(row.dueDate);
-    } catch {
-      continue;
-    }
+  // Procesar en chunks de 50 para evitar saturar la DB
+  const CHUNK_SIZE = 50;
+  const rows = parsed.data.rows;
 
-    // Upsert debtor (email como identificador si hay)
-    let debtor = row.email
-      ? await prisma.debtor.findUnique({
-          where: { companyId_email: { companyId: company.id, email: row.email } },
-        })
-      : null;
+  for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
+    const chunk = rows.slice(i, i + CHUNK_SIZE);
 
-    if (!debtor) {
-      debtor = await prisma.debtor.create({
-        data: {
-          name: row.name,
-          email: row.email ?? null,
-          whatsapp: row.whatsapp ?? null,
-          phone: row.phone ?? null,
-          companyId: company.id,
-        },
-      });
-      created++;
-    }
+    await prisma.$transaction(async (tx) => {
+      for (const row of chunk) {
+        let dueDate: Date;
+        try {
+          dueDate = parseDate(row.dueDate);
+        } catch {
+          continue;
+        }
 
-    const now = new Date();
-    const status = dueDate < now ? "OVERDUE" : "PENDING";
+        // Buscar deudor existente por email (si tiene)
+        let debtor = row.email
+          ? await tx.debtor.findUnique({
+              where: { companyId_email: { companyId: company.id, email: row.email } },
+            })
+          : null;
 
-    await prisma.debt.create({
-      data: {
-        concept: row.concept,
-        amount: row.amount,
-        originalAmount: row.amount,
-        dueDate,
-        status,
-        debtorId: debtor.id,
-        companyId: company.id,
-      },
-    });
-    debtsCreated++;
+        if (!debtor) {
+          debtor = await tx.debtor.create({
+            data: {
+              name: row.name,
+              email: row.email ?? null,
+              whatsapp: row.whatsapp ?? null,
+              phone: row.phone ?? null,
+              companyId: company.id,
+            },
+          });
+          created++;
+        }
 
-    // Actualizar totalDebt del deudor
-    await prisma.debtor.update({
-      where: { id: debtor.id },
-      data: { totalDebt: { increment: row.amount } },
+        const status = dueDate < now ? "OVERDUE" : "PENDING";
+
+        await tx.debt.create({
+          data: {
+            concept: row.concept,
+            amount: row.amount,
+            originalAmount: row.amount,
+            dueDate,
+            status,
+            debtorId: debtor.id,
+            companyId: company.id,
+          },
+        });
+
+        await tx.debtor.update({
+          where: { id: debtor.id },
+          data: { totalDebt: { increment: row.amount } },
+        });
+
+        debtsCreated++;
+      }
     });
   }
 

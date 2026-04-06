@@ -12,10 +12,7 @@ const twilioClient = twilio(
 );
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-function replaceVars(
-  template: string,
-  vars: Record<string, string>
-): string {
+function replaceVars(template: string, vars: Record<string, string>): string {
   return Object.entries(vars).reduce(
     (msg, [key, val]) => msg.replace(new RegExp(`\\{${key}\\}`, "g"), val),
     template
@@ -24,14 +21,17 @@ function replaceVars(
 
 function isWithinSendHours(timezone: string): boolean {
   try {
-    const now = new Date();
     const hour = parseInt(
-      now.toLocaleString("en-US", { hour: "numeric", hour12: false, timeZone: timezone }),
+      new Date().toLocaleString("en-US", {
+        hour: "numeric",
+        hour12: false,
+        timeZone: timezone,
+      }),
       10
     );
     return hour >= 9 && hour < 21;
   } catch {
-    return true; // fallback
+    return true;
   }
 }
 
@@ -44,11 +44,7 @@ async function sendWhatsApp(to: string, message: string): Promise<void> {
   });
 }
 
-async function sendEmail(
-  to: string,
-  subject: string,
-  body: string
-): Promise<void> {
+async function sendEmail(to: string, subject: string, body: string): Promise<void> {
   await resend.emails.send({
     from: `CobrarFácil <noreply@cobrarfacil.com>`,
     to,
@@ -83,7 +79,6 @@ export async function processCollections(companyId: string): Promise<{
 
   for (const sequence of sequences) {
     for (const step of sequence.steps) {
-      // Calcular la fecha objetivo para este step
       const targetDate = new Date(today);
       targetDate.setDate(targetDate.getDate() - step.triggerDays);
 
@@ -92,7 +87,6 @@ export async function processCollections(companyId: string): Promise<{
       const targetEnd = new Date(targetDate);
       targetEnd.setHours(23, 59, 59, 999);
 
-      // Buscar deudas que coincidan
       const debts = await prisma.debt.findMany({
         where: {
           companyId,
@@ -100,35 +94,36 @@ export async function processCollections(companyId: string): Promise<{
           status: step.onlyIfUnpaid
             ? { notIn: ["PAID", "CANCELLED", "WRITTEN_OFF"] }
             : undefined,
+          // Excluir deudas que ya tienen este step enviado (anti-duplicado en query)
+          messages: {
+            none: { stepId: step.id },
+          },
         },
         include: { debtor: true },
       });
 
+      processed += debts.length;
+
+      // Obtener deudas con contacto reciente en un solo batch
+      const recentContactDebtIds = step.skipIfContacted
+        ? new Set(
+            (
+              await prisma.collectionMessage.findMany({
+                where: {
+                  debtId: { in: debts.map((d) => d.id) },
+                  status: { in: ["SENT", "DELIVERED", "READ"] },
+                  createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+                },
+                select: { debtId: true },
+                distinct: ["debtId"],
+              })
+            ).map((m) => m.debtId)
+          )
+        : new Set<string>();
+
       for (const debt of debts) {
-        processed++;
+        if (recentContactDebtIds.has(debt.id)) continue;
 
-        // Verificar si ya se envió este step para esta deuda
-        const alreadySent = await prisma.collectionMessage.findFirst({
-          where: {
-            debtId: debt.id,
-            stepId: step.id,
-          },
-        });
-        if (alreadySent) continue;
-
-        // Verificar si ya fue contactado recientemente (skipIfContacted)
-        if (step.skipIfContacted) {
-          const recentContact = await prisma.collectionMessage.findFirst({
-            where: {
-              debtId: debt.id,
-              status: { in: ["SENT", "DELIVERED", "READ"] },
-              createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
-            },
-          });
-          if (recentContact) continue;
-        }
-
-        // Verificar que el canal esté disponible
         const debtor = debt.debtor;
         if (step.channel === "WHATSAPP" && !debtor.whatsapp) continue;
         if (step.channel === "EMAIL" && !debtor.email) continue;
@@ -140,7 +135,9 @@ export async function processCollections(companyId: string): Promise<{
           try {
             paymentLink = await generatePaymentLink({ debtId: debt.id, companyId });
           } catch {
-            paymentLink = `${process.env.NEXT_PUBLIC_APP_URL}/pay/${Buffer.from(`${debt.id}:${companyId}`).toString("base64url")}`;
+            paymentLink = `${process.env.NEXT_PUBLIC_APP_URL}/pay/${Buffer.from(
+              `${debt.id}:${companyId}`
+            ).toString("base64url")}`;
           }
         }
 
@@ -160,10 +157,8 @@ export async function processCollections(companyId: string): Promise<{
         };
 
         let content = replaceVars(step.messageTemplate, vars);
-        let originalTemplate = step.messageTemplate;
         let aiPersonalized = false;
 
-        // Personalización con IA
         if (step.useAI && step.aiTone) {
           try {
             const personalized = await personalizeMessage({
@@ -185,7 +180,6 @@ export async function processCollections(companyId: string): Promise<{
           }
         }
 
-        // Crear registro pendiente
         const message = await prisma.collectionMessage.create({
           data: {
             channel: step.channel,
@@ -193,7 +187,7 @@ export async function processCollections(companyId: string): Promise<{
             subject: step.subject ? replaceVars(step.subject, vars) : null,
             status: "PENDING",
             aiPersonalized,
-            originalTemplate: aiPersonalized ? originalTemplate : null,
+            originalTemplate: aiPersonalized ? step.messageTemplate : null,
             debtorId: debtor.id,
             debtId: debt.id,
             stepId: step.id,
@@ -201,22 +195,23 @@ export async function processCollections(companyId: string): Promise<{
           },
         });
 
-        // Enviar
         try {
           if (step.channel === "WHATSAPP") {
             await sendWhatsApp(debtor.whatsapp!, content);
           } else if (step.channel === "EMAIL") {
-            const subject = step.subject ? replaceVars(step.subject, vars) : `Aviso de cobro — ${debt.concept}`;
+            const subject =
+              step.subject
+                ? replaceVars(step.subject, vars)
+                : `Aviso de cobro — ${debt.concept}`;
             await sendEmail(debtor.email!, subject, content);
           } else if (step.channel === "SMS") {
-            await sendWhatsApp(debtor.phone!, content); // SMS via Twilio también
+            await sendWhatsApp(debtor.phone!, content);
           }
 
           await prisma.collectionMessage.update({
             where: { id: message.id },
             data: { status: "SENT", sentAt: new Date() },
           });
-
           sent++;
         } catch (err) {
           const errorMsg = err instanceof Error ? err.message : "Error desconocido";
@@ -230,30 +225,26 @@ export async function processCollections(companyId: string): Promise<{
     }
   }
 
-  // Actualizar status de deudas vencidas
-  await prisma.debt.updateMany({
-    where: {
-      companyId,
-      status: "PENDING",
-      dueDate: { lt: today },
-    },
-    data: { status: "OVERDUE" },
-  });
+  // Actualizar estado de deudas vencidas + analytics en paralelo
+  await Promise.all([
+    prisma.debt.updateMany({
+      where: { companyId, status: "PENDING", dueDate: { lt: today } },
+      data: { status: "OVERDUE" },
+    }),
+    prisma.collectionAnalytics.create({
+      data: {
+        type: "CRON_RUN",
+        metadata: { processed, sent, errors, date: today.toISOString() },
+        companyId,
+      },
+    }),
+  ]);
 
-  // Analytics del run
-  await prisma.collectionAnalytics.create({
-    data: {
-      type: "CRON_RUN",
-      metadata: { processed, sent, errors, date: today.toISOString() },
-      companyId,
-    },
-  });
-
-  // Actualizar scores de deudores activos
+  // Actualizar scores en paralelo (con límite para no saturar)
   const activeDebtors = await prisma.debtor.findMany({
     where: { companyId, debts: { some: { status: "OVERDUE" } } },
     select: { id: true },
-    take: 100,
+    take: 50,
   });
   await Promise.allSettled(activeDebtors.map((d) => updateDebtorScore(d.id)));
 

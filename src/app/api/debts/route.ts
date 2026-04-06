@@ -1,18 +1,7 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
+import { requireCompany, isAuthError } from "@/lib/api-auth";
 import { z } from "zod";
-
-async function getCompany() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-  const dbUser = await prisma.user.findUnique({
-    where: { supabaseId: user.id },
-    include: { companies: { take: 1 } },
-  });
-  return dbUser?.companies[0] ?? null;
-}
 
 const createSchema = z.object({
   debtorId: z.string().min(1),
@@ -23,8 +12,9 @@ const createSchema = z.object({
 });
 
 export async function GET() {
-  const company = await getCompany();
-  if (!company) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  const auth = await requireCompany();
+  if (isAuthError(auth)) return auth;
+  const { company } = auth;
 
   const debts = await prisma.debt.findMany({
     where: { companyId: company.id },
@@ -37,8 +27,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const company = await getCompany();
-  if (!company) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  const auth = await requireCompany();
+  if (isAuthError(auth)) return auth;
+  const { company } = auth;
 
   const body = await req.json();
   const parsed = createSchema.safeParse(body);
@@ -56,23 +47,24 @@ export async function POST(req: Request) {
   const due = new Date(dueDate);
   const status = due < new Date() ? "OVERDUE" : "PENDING";
 
-  const debt = await prisma.debt.create({
-    data: {
-      concept,
-      amount,
-      originalAmount: amount,
-      dueDate: due,
-      status,
-      debtorId,
-      companyId: company.id,
-      metadata: notes ? { notes } : undefined,
-    },
-  });
-
-  await prisma.debtor.update({
-    where: { id: debtorId },
-    data: { totalDebt: { increment: amount } },
-  });
+  const [debt] = await prisma.$transaction([
+    prisma.debt.create({
+      data: {
+        concept,
+        amount,
+        originalAmount: amount,
+        dueDate: due,
+        status,
+        debtorId,
+        companyId: company.id,
+        metadata: notes ? { notes } : undefined,
+      },
+    }),
+    prisma.debtor.update({
+      where: { id: debtorId },
+      data: { totalDebt: { increment: amount } },
+    }),
+  ]);
 
   return NextResponse.json({ debt }, { status: 201 });
 }
