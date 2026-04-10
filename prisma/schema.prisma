@@ -1,5 +1,6 @@
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 generator client {
@@ -42,13 +43,13 @@ model Company {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  debtors   Debtor[]
-  debts     Debt[]
-  sequences CollectionSequence[]
-  messages  CollectionMessage[]
-  payments  Payment[]
-  campaigns Campaign[]
-  analytics CollectionAnalytics[]
+  debtors       Debtor[]
+  debts         Debt[]
+  sequences     CollectionSequence[]
+  messages      CollectionMessage[]
+  payments      Payment[]
+  campaigns     Campaign[]
+  analytics     CollectionAnalytics[]
   conversations AgentConversation[]
 
   createdAt DateTime @default(now())
@@ -82,10 +83,10 @@ model Debtor {
   notes        String?
   customFields Json?
 
-  companyId String
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  debts     Debt[]
-  messages  CollectionMessage[]
+  companyId     String
+  company       Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  debts         Debt[]
+  messages      CollectionMessage[]
   conversations AgentConversation[]
 
   createdAt DateTime @default(now())
@@ -289,13 +290,13 @@ model CollectionAnalytics {
 }
 
 model AgentConversation {
-  id       String              @id @default(cuid())
-  status   ConversationStatus  @default(ACTIVE)
-  channel  StepChannel
-  turnCount Int                @default(0)
-  escalated Boolean            @default(false)
+  id               String             @id @default(cuid())
+  status           ConversationStatus @default(ACTIVE)
+  channel          StepChannel
+  turnCount        Int                @default(0)
+  escalated        Boolean            @default(false)
   escalationReason String?
-  resolvedAt DateTime?
+  resolvedAt       DateTime?
 
   debtorId  String
   debtor    Debtor  @relation(fields: [debtorId], references: [id], onDelete: Cascade)
@@ -316,9 +317,9 @@ enum ConversationStatus {
 }
 
 model AgentMessage {
-  id      String      @id @default(cuid())
-  role    AgentRole
-  content String
+  id        String    @id @default(cuid())
+  role      AgentRole
+  content   String
   toolCalls Json?
 
   conversationId String

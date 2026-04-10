@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowLeft } from "lucide-react";
@@ -12,7 +12,7 @@ interface Debtor {
   email?: string;
 }
 
-export default function NewDebtPage() {
+function NewDebtForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const preselectedDebtorId = searchParams.get("debtorId");
@@ -35,7 +35,10 @@ export default function NewDebtPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.debtorId) { toast.error("Seleccioná un deudor"); return; }
+    if (!form.debtorId) {
+      toast.error("Seleccioná un deudor");
+      return;
+    }
     setLoading(true);
     const res = await fetch("/api/debts", {
       method: "POST",
@@ -137,5 +140,19 @@ export default function NewDebtPage() {
         </div>
       </form>
     </div>
+  );
+}
+
+export default function NewDebtPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center h-64">
+          <div className="text-gray-500 text-sm">Cargando...</div>
+        </div>
+      }
+    >
+      <NewDebtForm />
+    </Suspense>
   );
 }

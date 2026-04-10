@@ -4,12 +4,18 @@ import { Pool } from "pg";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
+  pgPool: Pool | undefined;
 };
 
+function getPool(): Pool {
+  if (globalForPrisma.pgPool) return globalForPrisma.pgPool;
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL! });
+  if (process.env.NODE_ENV !== "production") globalForPrisma.pgPool = pool;
+  return pool;
+}
+
 function createPrismaClient() {
-  const connectionString = process.env.DATABASE_URL!;
-  const pool = new Pool({ connectionString });
-  const adapter = new PrismaPg(pool);
+  const adapter = new PrismaPg(getPool());
   return new PrismaClient({
     adapter,
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
