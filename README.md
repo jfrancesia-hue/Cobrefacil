@@ -16,6 +16,25 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Production
+
+Before deploying, configure the variables from `.env.example` and run:
+
+```bash
+npm run lint
+npm run typecheck
+npm run prod:check
+npm run build
+```
+
+Then apply migrations with:
+
+```bash
+npm run db:migrate:deploy
+```
+
+See `docs/production-checklist.md` for the full deploy checklist.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

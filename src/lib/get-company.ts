@@ -2,12 +2,12 @@ import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
-import { DEMO_COOKIE } from "@/lib/demo-auth";
+import { DEMO_COOKIE, isDemoModeEnabled } from "@/lib/demo-auth";
 import { demoCompany, demoUser } from "@/lib/demo-data";
 
 export async function getCompanyOrRedirect() {
   const cookieStore = await cookies();
-  if (cookieStore.get(DEMO_COOKIE)?.value === "1") {
+  if (isDemoModeEnabled() && cookieStore.get(DEMO_COOKIE)?.value === "1") {
     return { user: demoUser, company: demoCompany, isDemo: true };
   }
 

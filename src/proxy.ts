@@ -1,9 +1,12 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { isDemoModeEnabled } from "@/lib/demo-auth";
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
-  const isDemoSession = request.cookies.get("cobrefacil_demo")?.value === "1";
+  const demoEnabled = isDemoModeEnabled();
+  const isDemoSession =
+    demoEnabled && request.cookies.get("cobrefacil_demo")?.value === "1";
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -41,7 +44,7 @@ export async function proxy(request: NextRequest) {
     "/api/mercadopago",
     "/api/whatsapp",
     "/api/collection",
-    "/api/demo",
+    ...(demoEnabled ? ["/api/demo"] : []),
   ];
   const isPublic =
     pathname === "/" ||

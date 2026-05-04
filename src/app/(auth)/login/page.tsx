@@ -9,6 +9,10 @@ import Image from "next/image";
 import { ArrowLeft, LogIn, ShieldCheck, Zap } from "lucide-react";
 import { DEMO_EMAIL, DEMO_PASSWORD } from "@/lib/demo-auth";
 
+const demoEnabled =
+  process.env.NEXT_PUBLIC_ENABLE_DEMO === "true" ||
+  process.env.NODE_ENV !== "production";
+
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -32,7 +36,11 @@ export default function LoginPage() {
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    if (email.trim().toLowerCase() === DEMO_EMAIL && password === DEMO_PASSWORD) {
+    if (
+      demoEnabled &&
+      email.trim().toLowerCase() === DEMO_EMAIL &&
+      password === DEMO_PASSWORD
+    ) {
       await enterDemo();
       return;
     }
@@ -114,15 +122,17 @@ export default function LoginPage() {
             </div>
 
             <form onSubmit={handleLogin} className="space-y-4">
-              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
-                <p className="font-bold">Acceso demo</p>
-                <p className="mt-1">
-                  Usuario: <span className="font-semibold">{DEMO_EMAIL}</span>
-                </p>
-                <p>
-                  Contraseña: <span className="font-semibold">{DEMO_PASSWORD}</span>
-                </p>
-              </div>
+              {demoEnabled && (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+                  <p className="font-bold">Acceso demo</p>
+                  <p className="mt-1">
+                    Usuario: <span className="font-semibold">{DEMO_EMAIL}</span>
+                  </p>
+                  <p>
+                    Contraseña: <span className="font-semibold">{DEMO_PASSWORD}</span>
+                  </p>
+                </div>
+              )}
 
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">Email</label>
@@ -153,14 +163,16 @@ export default function LoginPage() {
                 <LogIn className="h-4 w-4" />
                 {loading ? "Ingresando..." : "Ingresar al panel"}
               </button>
-              <button
-                type="button"
-                onClick={enterDemo}
-                disabled={loading}
-                className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white py-3 text-sm font-bold text-slate-950 transition-colors hover:bg-slate-50 disabled:opacity-50"
-              >
-                Entrar como demo
-              </button>
+              {demoEnabled && (
+                <button
+                  type="button"
+                  onClick={enterDemo}
+                  disabled={loading}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white py-3 text-sm font-bold text-slate-950 transition-colors hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Entrar como demo
+                </button>
+              )}
             </form>
 
             <p className="mt-6 text-center text-sm text-slate-500">
