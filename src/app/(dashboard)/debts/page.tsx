@@ -23,12 +23,6 @@ export default async function DebtsPage({
     take: 200,
   });
 
-  const totals = {
-    pending: debts.filter((d) => d.status === "PENDING" || d.status === "DUE" || d.status === "OVERDUE").length,
-    paid: debts.filter((d) => d.status === "PAID").length,
-    total: debts.reduce((sum, d) => sum + Number(d.amount), 0),
-  };
-
   return (
     <div>
       <div className="flex items-center justify-between mb-6">

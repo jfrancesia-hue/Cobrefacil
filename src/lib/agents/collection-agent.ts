@@ -2,9 +2,17 @@ import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/prisma";
 import { toolDefinitions, executeTool, ToolContext } from "./agent-tools";
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
 const MAX_TURNS = 10;
+
+let anthropic: Anthropic | null = null;
+
+function getAnthropic(): Anthropic {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    throw new Error("ANTHROPIC_API_KEY no está configurada");
+  }
+  anthropic ??= new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  return anthropic;
+}
 
 const SYSTEM_PROMPT = `Eres un agente de cobranza amable, empático y profesional para CobrarFácil.
 Tu objetivo es ayudar al deudor a resolver su deuda de la manera más cómoda posible.
@@ -114,9 +122,8 @@ export async function runCollectionAgent(
 
   const messages: Anthropic.MessageParam[] = history;
 
-  // eslint-disable-next-line no-constant-condition
   while (true) {
-    const response = await anthropic.messages.create({
+    const response = await getAnthropic().messages.create({
       model: "claude-opus-4-6",
       max_tokens: 1024,
       thinking: { type: "adaptive" },
@@ -163,7 +170,7 @@ export async function runCollectionAgent(
 
       if (escalated) {
         // Dar una última respuesta antes de escalar
-        const finalResp = await anthropic.messages.create({
+        const finalResp = await getAnthropic().messages.create({
           model: "claude-opus-4-6",
           max_tokens: 256,
           system: SYSTEM_PROMPT,

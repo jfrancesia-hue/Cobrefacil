@@ -20,7 +20,7 @@ export default function OnboardingPage() {
     });
     if (res.ok) {
       toast.success("¡Empresa creada! Bienvenido a CobrarFácil.");
-      router.push("/");
+      router.push("/dashboard");
       router.refresh();
     } else {
       const data = await res.json();

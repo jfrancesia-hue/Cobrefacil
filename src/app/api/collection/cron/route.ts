@@ -40,11 +40,9 @@ export async function POST(req: Request) {
 }
 
 // También permite GET para testing
-export async function GET(req: Request) {
-  const url = new URL(req.url);
-  const secret = url.searchParams.get("secret");
-  if (secret !== process.env.CRON_SECRET) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
-  return POST(req);
+export async function GET() {
+  return NextResponse.json(
+    { error: "Usa POST con Authorization Bearer" },
+    { status: 405 }
+  );
 }

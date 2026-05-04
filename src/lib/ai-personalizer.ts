@@ -1,6 +1,14 @@
 import OpenAI from "openai";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+let openai: OpenAI | null = null;
+
+function getOpenAI(): OpenAI {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("OPENAI_API_KEY no está configurada");
+  }
+  openai ??= new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  return openai;
+}
 
 interface PersonalizeParams {
   template: string;
@@ -33,7 +41,7 @@ Reglas:
 Mensaje original: ${template}
 Tono deseado: ${tone}`;
 
-  const response = await openai.chat.completions.create({
+  const response = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini",
     messages: [
       { role: "system", content: systemPrompt },

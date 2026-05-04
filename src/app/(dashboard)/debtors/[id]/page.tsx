@@ -25,7 +25,6 @@ export default async function DebtorDetailPage({
   if (!debtor) notFound();
 
   const risk = getRiskLabel(debtor.riskScore);
-  const pendingDebts = debtor.debts.filter((d) => d.status !== "PAID" && d.status !== "CANCELLED");
 
   return (
     <div className="max-w-4xl mx-auto">

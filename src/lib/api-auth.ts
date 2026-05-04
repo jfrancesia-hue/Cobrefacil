@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { Company } from "@prisma/client";
+import { Company } from "@/generated/prisma/client";
 
 interface AuthResult {
   company: Company;

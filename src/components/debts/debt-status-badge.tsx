@@ -1,4 +1,4 @@
-import { DebtStatus } from "@prisma/client";
+import { DebtStatus } from "@/generated/prisma/client";
 
 const statusConfig: Record<DebtStatus, { label: string; className: string }> = {
   PENDING: { label: "Pendiente", className: "bg-yellow-100 text-yellow-700" },

@@ -1,9 +1,9 @@
 "use client";
 
-import { Company, User } from "@prisma/client";
+import { Company, User } from "@/generated/prisma/client";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
-import { LogOut, Bell } from "lucide-react";
+import { LogOut, Bell, Sparkles } from "lucide-react";
 
 export default function Header({
   user,
@@ -17,36 +17,38 @@ export default function Header({
 
   async function handleLogout() {
     await supabase.auth.signOut();
+    await fetch("/api/demo/logout", { method: "POST" });
     router.push("/login");
     router.refresh();
   }
 
   return (
-    <header className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-6 shrink-0">
+    <header className="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white/95 px-6 backdrop-blur">
       <div className="flex items-center gap-2">
-        <span className="text-sm font-medium text-gray-500">Plan</span>
-        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">
+        <span className="text-sm font-medium text-slate-500">Plan</span>
+        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+          <Sparkles className="h-3 w-3" />
           {company.plan}
         </span>
       </div>
       <div className="flex items-center gap-4">
-        <button className="text-gray-400 hover:text-gray-600">
-          <Bell className="w-5 h-5" />
+        <button className="text-slate-400 transition-colors hover:text-slate-700" title="Notificaciones">
+          <Bell className="h-5 w-5" />
         </button>
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-950 text-xs font-bold text-white">
             {user.name?.charAt(0).toUpperCase() ?? "U"}
           </div>
-          <span className="text-sm text-gray-700 hidden md:block">
+          <span className="hidden text-sm text-slate-700 md:block">
             {user.name ?? user.email}
           </span>
         </div>
         <button
           onClick={handleLogout}
-          className="text-gray-400 hover:text-red-500 transition-colors"
+          className="text-slate-400 transition-colors hover:text-red-500"
           title="Cerrar sesión"
         >
-          <LogOut className="w-4 h-4" />
+          <LogOut className="h-4 w-4" />
         </button>
       </div>
     </header>

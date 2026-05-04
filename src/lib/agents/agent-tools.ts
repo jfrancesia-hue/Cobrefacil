@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { generatePaymentLink } from "@/lib/payment-link-generator";
+import { createPaymentToken } from "@/lib/payment-token";
 import { formatCurrency, toNumber } from "@/lib/utils";
 
 export interface ToolContext {
@@ -144,9 +145,10 @@ export async function generarLinkPago(
     });
     return `Link de pago generado: ${link}`;
   } catch {
-    const fallback = `${process.env.NEXT_PUBLIC_APP_URL}/pay/${Buffer.from(
-      `${debtId}:${ctx.companyId}`
-    ).toString("base64url")}`;
+    const fallback = `${process.env.NEXT_PUBLIC_APP_URL}/pay/${createPaymentToken({
+      debtId,
+      companyId: ctx.companyId,
+    })}`;
     return `Link de pago: ${fallback}`;
   }
 }

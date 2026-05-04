@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { Company } from "@prisma/client";
+import { Company } from "@/generated/prisma/client";
 
 interface CompanyStore {
   company: Company | null;

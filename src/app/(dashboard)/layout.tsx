@@ -6,7 +6,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const { company, user } = await getCompanyOrRedirect();
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
+    <div className="flex h-screen overflow-hidden bg-slate-100">
       <Sidebar company={company} />
       <div className="flex flex-col flex-1 overflow-hidden">
         <Header user={user} company={company} />
