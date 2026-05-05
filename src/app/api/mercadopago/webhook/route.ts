@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 import { MercadoPagoConfig, Payment } from "mercadopago";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
+import { decrypt } from "@/lib/encryption";
+import { logger } from "@/lib/logger";
 import crypto from "crypto";
 
-const client = new MercadoPagoConfig({
-  accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN!,
-});
+type MercadoPagoPayment = Awaited<ReturnType<Payment["get"]>>;
 
 function parseSignature(signature: string): { ts?: string; v1?: string } {
   return signature.split(",").reduce<{ ts?: string; v1?: string }>((acc, part) => {
@@ -70,6 +70,49 @@ function isDuplicatePaymentError(err: unknown): boolean {
   );
 }
 
+async function getPaymentWithToken(
+  paymentId: string,
+  accessToken: string
+): Promise<MercadoPagoPayment> {
+  const client = new MercadoPagoConfig({ accessToken });
+  return new Payment(client).get({ id: paymentId });
+}
+
+async function fetchMercadoPagoPayment(
+  paymentId: string
+): Promise<MercadoPagoPayment> {
+  const errors: unknown[] = [];
+  const platformToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
+
+  if (platformToken) {
+    try {
+      return await getPaymentWithToken(paymentId, platformToken);
+    } catch (err) {
+      errors.push(err);
+    }
+  }
+
+  const companies = await prisma.company.findMany({
+    where: { mpAccessToken: { not: null } },
+    select: { id: true, mpAccessToken: true },
+  });
+
+  for (const company of companies) {
+    try {
+      const token = decrypt(company.mpAccessToken!);
+      return await getPaymentWithToken(paymentId, token);
+    } catch (err) {
+      errors.push(err);
+      logger.warn("Could not fetch MercadoPago payment with company token", {
+        companyId: company.id,
+        paymentId,
+      });
+    }
+  }
+
+  throw errors[0] ?? new Error("No MercadoPago access token configured");
+}
+
 export async function POST(req: Request) {
   if (!isValidMercadoPagoWebhook(req)) {
     return NextResponse.json({ error: "Firma inválida" }, { status: 403 });
@@ -85,8 +128,7 @@ export async function POST(req: Request) {
   if (!paymentId) return NextResponse.json({ ok: true });
 
   try {
-    const paymentApi = new Payment(client);
-    const mpPayment = await paymentApi.get({ id: paymentId });
+    const mpPayment = await fetchMercadoPagoPayment(String(paymentId));
 
     const debtId = mpPayment.external_reference;
     if (!debtId) return NextResponse.json({ ok: true });
@@ -167,7 +209,7 @@ export async function POST(req: Request) {
       }
     }
   } catch (err) {
-    console.error("MP webhook error:", err);
+    logger.error("MP webhook error", err, { paymentId });
     return NextResponse.json(
       { error: "No se pudo procesar el webhook" },
       { status: 500 }

@@ -7,10 +7,13 @@ import { verifyPaymentToken } from "@/lib/payment-token";
 
 export default async function PayPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ token: string }>;
+  searchParams?: Promise<{ status?: string }>;
 }) {
   const { token } = await params;
+  const { status } = (await searchParams) ?? {};
 
   const payload = verifyPaymentToken(token);
   if (!payload) notFound();
@@ -41,6 +44,26 @@ export default async function PayPage({
   }
 
   const amount = Number(debt.amount) + Number(debt.lateFee) - Number(debt.discount);
+  const statusNotice =
+    status === "success"
+      ? {
+          title: "Pago iniciado correctamente",
+          body: "MercadoPago nos avisará cuando el pago quede aprobado. Si ya se acreditó, esta pantalla se actualizará cuando el webhook lo confirme.",
+          className: "border-emerald-200 bg-emerald-50 text-emerald-900",
+        }
+      : status === "pending"
+        ? {
+            title: "Pago pendiente",
+            body: "El pago quedó pendiente de confirmación. Te recomendamos conservar el comprobante.",
+            className: "border-amber-200 bg-amber-50 text-amber-900",
+          }
+        : status === "failure"
+          ? {
+              title: "No se pudo completar el pago",
+              body: "Podés volver a intentarlo con MercadoPago o coordinar el pago con la empresa.",
+              className: "border-rose-200 bg-rose-50 text-rose-900",
+            }
+          : null;
 
   let paymentLink = debt.mpPaymentLink;
   if (!paymentLink) {
@@ -106,6 +129,13 @@ export default async function PayPage({
           <p className="mb-6 text-sm leading-6 text-slate-500">
             Hola {debt.debtor.name}, este enlace te permite resolver el pago de forma simple y segura.
           </p>
+
+          {statusNotice && (
+            <div className={`mb-6 rounded-lg border p-4 text-sm ${statusNotice.className}`}>
+              <p className="font-bold">{statusNotice.title}</p>
+              <p className="mt-1 leading-6">{statusNotice.body}</p>
+            </div>
+          )}
 
           <div className="mb-6 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
             <div className="flex justify-between gap-4 text-sm">

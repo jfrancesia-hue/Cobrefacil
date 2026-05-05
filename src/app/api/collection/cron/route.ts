@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { processCollections } from "@/lib/collection-engine";
+import { logger } from "@/lib/logger";
 
 export async function POST(req: Request) {
   // Verificar secret del cron
@@ -24,6 +25,9 @@ export async function POST(req: Request) {
       const result = await processCollections(company.id);
       results[company.id] = { name: company.name, ...result };
     } catch (err) {
+      logger.error("Collection cron failed for company", err, {
+        companyId: company.id,
+      });
       results[company.id] = {
         name: company.name,
         error: err instanceof Error ? err.message : "Error",

@@ -63,9 +63,9 @@ export async function generatePaymentLink({
       external_reference: debtId,
       notification_url: `${appUrl}/api/mercadopago/webhook`,
       back_urls: {
-        success: `${appUrl}/pay/${token}/success`,
-        failure: `${appUrl}/pay/${token}/failure`,
-        pending: `${appUrl}/pay/${token}/pending`,
+        success: `${appUrl}/pay/${token}?status=success`,
+        failure: `${appUrl}/pay/${token}?status=failure`,
+        pending: `${appUrl}/pay/${token}?status=pending`,
       },
       auto_return: "approved",
     },

@@ -6,6 +6,7 @@ Use this before promoting CobrarFacil from staging to production.
 
 ```bash
 npm run lint
+npm run test
 npm run typecheck
 npm run prod:check
 npm run build
@@ -18,7 +19,7 @@ npm run db:migrate:deploy
 - Keep `ENABLE_DEMO_MODE=false` and `NEXT_PUBLIC_ENABLE_DEMO=false`.
 - Use 32+ character random values for `ENCRYPTION_KEY`, `PAYMENT_LINK_SECRET`, and `CRON_SECRET`.
 - Set `NEXT_PUBLIC_APP_URL` to the final HTTPS app URL before running `next build`.
-- Configure production Supabase URLs/keys, MercadoPago credentials, Twilio WhatsApp, and Resend.
+- Configure production Supabase URLs/keys, MercadoPago credentials, Twilio WhatsApp/SMS, and Resend.
 - Store MercadoPago webhook secret from the production webhook configuration.
 
 ## Payments
@@ -33,9 +34,12 @@ npm run db:migrate:deploy
 - Confirm `/api/demo/login` returns 404 in production.
 - Confirm unauthenticated visits to dashboard routes redirect to `/login`.
 - Confirm API writes cannot access another company's debtors, debts, campaigns, or sequences.
+- Confirm repeated public API writes return 429 after the configured rate limit.
 
 ## Operations
 
 - Protect `/api/collection/cron` with `Authorization: Bearer $CRON_SECRET`.
-- Configure error logging for route handlers and webhook failures.
+- Confirm `/api/health` returns 200 from the production platform.
+- Confirm production responses include CSP, HSTS, frame, referrer, permissions, and nosniff headers.
+- Configure log ingestion for structured route-handler and webhook errors.
 - Run a full staging flow: register, onboard, create debtor, create debt, generate payment link, pay in sandbox, receive webhook.

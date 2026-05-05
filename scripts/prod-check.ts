@@ -13,6 +13,7 @@ const required = [
   "TWILIO_ACCOUNT_SID",
   "TWILIO_AUTH_TOKEN",
   "TWILIO_WHATSAPP_FROM",
+  "TWILIO_SMS_FROM",
   "RESEND_API_KEY",
 ] as const;
 

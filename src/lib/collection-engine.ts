@@ -3,6 +3,7 @@ import { generatePaymentLink } from "@/lib/payment-link-generator";
 import { personalizeMessage } from "@/lib/ai-personalizer";
 import { updateDebtorScore } from "@/lib/debtor-scorer";
 import { createPaymentToken } from "@/lib/payment-token";
+import { logger } from "@/lib/logger";
 import twilio from "twilio";
 import { Resend } from "resend";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -57,6 +58,20 @@ async function sendWhatsApp(to: string, message: string): Promise<void> {
   await getTwilioClient().messages.create({
     from: process.env.TWILIO_WHATSAPP_FROM!,
     to: `whatsapp:${normalized}`,
+    body: message,
+  });
+}
+
+async function sendSms(to: string, message: string): Promise<void> {
+  const from = process.env.TWILIO_SMS_FROM;
+  if (!from) {
+    throw new Error("TWILIO_SMS_FROM no esta configurado");
+  }
+
+  const normalized = to.startsWith("+") ? to : `+${to}`;
+  await getTwilioClient().messages.create({
+    from,
+    to: normalized,
     body: message,
   });
 }
@@ -194,7 +209,11 @@ export async function processCollections(companyId: string): Promise<{
             content = replaceVars(personalized, vars);
             aiPersonalized = true;
           } catch (err) {
-            console.error("AI personalization failed:", err);
+            logger.error("AI personalization failed", err, {
+              companyId,
+              debtId: debt.id,
+              stepId: step.id,
+            });
           }
         }
 
@@ -223,7 +242,7 @@ export async function processCollections(companyId: string): Promise<{
                 : `Aviso de cobro — ${debt.concept}`;
             await sendEmail(debtor.email!, subject, content);
           } else if (step.channel === "SMS") {
-            await sendWhatsApp(debtor.phone!, content);
+            await sendSms(debtor.phone!, content);
           }
 
           await prisma.collectionMessage.update({

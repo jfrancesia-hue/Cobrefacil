@@ -22,6 +22,7 @@ Before deploying, configure the variables from `.env.example` and run:
 
 ```bash
 npm run lint
+npm run test
 npm run typecheck
 npm run prod:check
 npm run build
