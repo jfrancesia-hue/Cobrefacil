@@ -1,7 +1,7 @@
 import { getCompanyOrRedirect } from "@/lib/get-company";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
-import { Plus, Layers, CheckCircle } from "lucide-react";
+import { Plus, Layers } from "lucide-react";
 
 export default async function SequencesPage() {
   const { company } = await getCompanyOrRedirect();

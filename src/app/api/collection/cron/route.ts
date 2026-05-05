@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { processCollections } from "@/lib/collection-engine";
+import { logger } from "@/lib/logger";
 
 export async function POST(req: Request) {
   // Verificar secret del cron
@@ -24,6 +25,9 @@ export async function POST(req: Request) {
       const result = await processCollections(company.id);
       results[company.id] = { name: company.name, ...result };
     } catch (err) {
+      logger.error("Collection cron failed for company", err, {
+        companyId: company.id,
+      });
       results[company.id] = {
         name: company.name,
         error: err instanceof Error ? err.message : "Error",
@@ -40,11 +44,9 @@ export async function POST(req: Request) {
 }
 
 // También permite GET para testing
-export async function GET(req: Request) {
-  const url = new URL(req.url);
-  const secret = url.searchParams.get("secret");
-  if (secret !== process.env.CRON_SECRET) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
-  return POST(req);
+export async function GET() {
+  return NextResponse.json(
+    { error: "Usa POST con Authorization Bearer" },
+    { status: 405 }
+  );
 }

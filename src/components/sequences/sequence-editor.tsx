@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CollectionSequence, CollectionStep, StepChannel } from "@prisma/client";
+import { CollectionSequence, CollectionStep, StepChannel } from "@/generated/prisma/client";
 import {
   DndContext,
   closestCenter,
@@ -24,24 +24,9 @@ import {
   GripVertical,
   Plus,
   Trash2,
-  MessageSquare,
-  Mail,
-  Phone,
   Sparkles,
   Save,
 } from "lucide-react";
-
-const channelIcons: Record<StepChannel, React.ReactNode> = {
-  WHATSAPP: <MessageSquare className="w-4 h-4 text-green-600" />,
-  EMAIL: <Mail className="w-4 h-4 text-blue-600" />,
-  SMS: <Phone className="w-4 h-4 text-orange-600" />,
-};
-
-const channelLabels: Record<StepChannel, string> = {
-  WHATSAPP: "WhatsApp",
-  EMAIL: "Email",
-  SMS: "SMS",
-};
 
 interface StepWithId extends Partial<CollectionStep> {
   id: string;

@@ -1,6 +1,7 @@
 import { MercadoPagoConfig, Preference } from "mercadopago";
 import { prisma } from "@/lib/prisma";
 import { decrypt } from "@/lib/encryption";
+import { createPaymentToken } from "@/lib/payment-token";
 
 interface GeneratePaymentLinkParams {
   debtId: string;
@@ -26,7 +27,7 @@ export async function generatePaymentLink({
   if (debt.mpPaymentLink) return debt.mpPaymentLink;
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
-  const token = Buffer.from(`${debtId}:${companyId}`).toString("base64url");
+  const token = createPaymentToken({ debtId, companyId });
 
   // Usar token MP del cliente si está configurado, sino el de la plataforma
   let accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN!;
@@ -62,9 +63,9 @@ export async function generatePaymentLink({
       external_reference: debtId,
       notification_url: `${appUrl}/api/mercadopago/webhook`,
       back_urls: {
-        success: `${appUrl}/pay/${token}/success`,
-        failure: `${appUrl}/pay/${token}/failure`,
-        pending: `${appUrl}/pay/${token}/pending`,
+        success: `${appUrl}/pay/${token}?status=success`,
+        failure: `${appUrl}/pay/${token}?status=failure`,
+        pending: `${appUrl}/pay/${token}?status=pending`,
       },
       auto_return: "approved",
     },

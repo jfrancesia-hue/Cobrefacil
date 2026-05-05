@@ -1,4 +1,4 @@
-import { PrismaClient, DebtStatus, MessageStatus, StepChannel } from "@prisma/client";
+import { PrismaClient, DebtStatus, MessageStatus, StepChannel } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import { subDays, addDays } from "date-fns";
@@ -61,9 +61,8 @@ async function main() {
     where: { companyId: company.id, isDefault: true },
   });
 
-  let sequence;
   if (!existingSeq) {
-    sequence = await prisma.collectionSequence.create({
+    await prisma.collectionSequence.create({
       data: {
         name: "Secuencia Estándar",
         isDefault: true,
@@ -82,8 +81,6 @@ async function main() {
       include: { steps: true },
     });
     console.log("✅ Secuencia default creada");
-  } else {
-    sequence = existingSeq;
   }
 
   // 4. Crear 100 deudores

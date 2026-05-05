@@ -1,13 +1,12 @@
 import { getCompanyOrRedirect } from "@/lib/get-company";
 import { prisma } from "@/lib/prisma";
 import { formatCurrency } from "@/lib/utils";
-import { BarChart3 } from "lucide-react";
 import AnalyticsCharts from "@/components/analytics/analytics-charts";
 
 export default async function AnalyticsPage() {
   const { company } = await getCompanyOrRedirect();
 
-  const [debts, messages, payments, analytics] = await Promise.all([
+  const [debts, messages, payments] = await Promise.all([
     prisma.debt.findMany({
       where: { companyId: company.id },
       select: { status: true, amount: true, paidAmount: true, dueDate: true, paidAt: true },
@@ -20,11 +19,6 @@ export default async function AnalyticsPage() {
       where: { companyId: company.id, status: "APPROVED" },
       select: { amount: true, createdAt: true },
       orderBy: { createdAt: "asc" },
-    }),
-    prisma.collectionAnalytics.findMany({
-      where: { companyId: company.id, type: "CRON_RUN" },
-      orderBy: { createdAt: "desc" },
-      take: 30,
     }),
   ]);
 

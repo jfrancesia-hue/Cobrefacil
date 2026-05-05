@@ -25,7 +25,7 @@ export default function RecoveryChart({ data }: { data: ChartData[] }) {
   return (
     <ResponsiveContainer width="100%" height={200}>
       <BarChart data={data} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
         <XAxis
           dataKey="month"
           tick={{ fontSize: 11, fill: "#6b7280" }}
@@ -43,9 +43,9 @@ export default function RecoveryChart({ data }: { data: ChartData[] }) {
           formatter={(value) =>
             new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format(Number(value))
           }
-          contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e5e7eb" }}
+          contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e2e8f0" }}
         />
-        <Bar dataKey="amount" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+        <Bar dataKey="amount" fill="#10b981" radius={[4, 4, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
   );

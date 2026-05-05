@@ -2,15 +2,33 @@ import { prisma } from "@/lib/prisma";
 import { generatePaymentLink } from "@/lib/payment-link-generator";
 import { personalizeMessage } from "@/lib/ai-personalizer";
 import { updateDebtorScore } from "@/lib/debtor-scorer";
+import { createPaymentToken } from "@/lib/payment-token";
+import { logger } from "@/lib/logger";
 import twilio from "twilio";
 import { Resend } from "resend";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
-const twilioClient = twilio(
-  process.env.TWILIO_ACCOUNT_SID,
-  process.env.TWILIO_AUTH_TOKEN
-);
-const resend = new Resend(process.env.RESEND_API_KEY);
+let twilioClient: ReturnType<typeof twilio> | null = null;
+let resend: Resend | null = null;
+
+function getTwilioClient(): ReturnType<typeof twilio> {
+  if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
+    throw new Error("Credenciales de Twilio no configuradas");
+  }
+  twilioClient ??= twilio(
+    process.env.TWILIO_ACCOUNT_SID,
+    process.env.TWILIO_AUTH_TOKEN
+  );
+  return twilioClient;
+}
+
+function getResend(): Resend {
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error("RESEND_API_KEY no está configurada");
+  }
+  resend ??= new Resend(process.env.RESEND_API_KEY);
+  return resend;
+}
 
 function replaceVars(template: string, vars: Record<string, string>): string {
   return Object.entries(vars).reduce(
@@ -37,15 +55,29 @@ function isWithinSendHours(timezone: string): boolean {
 
 async function sendWhatsApp(to: string, message: string): Promise<void> {
   const normalized = to.startsWith("+") ? to : `+${to}`;
-  await twilioClient.messages.create({
+  await getTwilioClient().messages.create({
     from: process.env.TWILIO_WHATSAPP_FROM!,
     to: `whatsapp:${normalized}`,
     body: message,
   });
 }
 
+async function sendSms(to: string, message: string): Promise<void> {
+  const from = process.env.TWILIO_SMS_FROM;
+  if (!from) {
+    throw new Error("TWILIO_SMS_FROM no esta configurado");
+  }
+
+  const normalized = to.startsWith("+") ? to : `+${to}`;
+  await getTwilioClient().messages.create({
+    from,
+    to: normalized,
+    body: message,
+  });
+}
+
 async function sendEmail(to: string, subject: string, body: string): Promise<void> {
-  await resend.emails.send({
+  await getResend().emails.send({
     from: `CobrarFácil <noreply@cobrarfacil.com>`,
     to,
     subject,
@@ -135,9 +167,10 @@ export async function processCollections(companyId: string): Promise<{
           try {
             paymentLink = await generatePaymentLink({ debtId: debt.id, companyId });
           } catch {
-            paymentLink = `${process.env.NEXT_PUBLIC_APP_URL}/pay/${Buffer.from(
-              `${debt.id}:${companyId}`
-            ).toString("base64url")}`;
+            paymentLink = `${process.env.NEXT_PUBLIC_APP_URL}/pay/${createPaymentToken({
+              debtId: debt.id,
+              companyId,
+            })}`;
           }
         }
 
@@ -176,7 +209,11 @@ export async function processCollections(companyId: string): Promise<{
             content = replaceVars(personalized, vars);
             aiPersonalized = true;
           } catch (err) {
-            console.error("AI personalization failed:", err);
+            logger.error("AI personalization failed", err, {
+              companyId,
+              debtId: debt.id,
+              stepId: step.id,
+            });
           }
         }
 
@@ -205,7 +242,7 @@ export async function processCollections(companyId: string): Promise<{
                 : `Aviso de cobro — ${debt.concept}`;
             await sendEmail(debtor.email!, subject, content);
           } else if (step.channel === "SMS") {
-            await sendWhatsApp(debtor.phone!, content);
+            await sendSms(debtor.phone!, content);
           }
 
           await prisma.collectionMessage.update({

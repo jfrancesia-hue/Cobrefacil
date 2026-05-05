@@ -1,10 +1,10 @@
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
 }
 
 model User {
@@ -36,9 +36,9 @@ model Company {
   mpAccessToken String?
   mpPublicKey   String?
 
-  plan           PlanType @default(STARTER)
+  plan           PlanType  @default(STARTER)
   planExpiresAt  DateTime?
-  commissionRate Decimal  @default(0.03) @db.Decimal(4, 3)
+  commissionRate Decimal   @default(0.03) @db.Decimal(4, 3)
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -94,6 +94,7 @@ model Debtor {
 
   @@unique([companyId, externalId])
   @@unique([companyId, email])
+  @@index([companyId, name])
 }
 
 model Debt {
@@ -127,6 +128,9 @@ model Debt {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([companyId, status, dueDate])
+  @@index([debtorId, status])
 }
 
 enum DebtStatus {
@@ -203,6 +207,9 @@ model CollectionMessage {
   company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
+
+  @@index([companyId, createdAt])
+  @@index([companyId, channel, status])
 }
 
 enum MessageStatus {
@@ -220,7 +227,7 @@ model Payment {
   method PaymentMethod
   status PaymentStatus @default(PENDING)
 
-  mpPaymentId String?
+  mpPaymentId String? @unique
   mpStatus    String?
   receiptUrl  String?
   notes       String?
@@ -231,6 +238,9 @@ model Payment {
   company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
+
+  @@index([companyId, createdAt])
+  @@index([debtId, status])
 }
 
 enum PaymentMethod {
@@ -256,13 +266,13 @@ model Campaign {
   filters         Json
   channel         StepChannel
   messageTemplate String
-  useAI           Boolean @default(false)
+  useAI           Boolean     @default(false)
 
-  totalTargeted   Int     @default(0)
-  totalSent       Int     @default(0)
-  totalDelivered  Int     @default(0)
-  totalPaid       Int     @default(0)
-  amountRecovered Decimal @default(0) @db.Decimal(12, 2)
+  totalTargeted   Int       @default(0)
+  totalSent       Int       @default(0)
+  totalDelivered  Int       @default(0)
+  totalPaid       Int       @default(0)
+  amountRecovered Decimal   @default(0) @db.Decimal(12, 2)
   executedAt      DateTime?
 
   companyId String
@@ -270,6 +280,8 @@ model Campaign {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([companyId, status, createdAt])
 }
 
 enum CampaignStatus {
@@ -287,6 +299,8 @@ model CollectionAnalytics {
   companyId String
   company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
+
+  @@index([companyId, createdAt])
 }
 
 model AgentConversation {
@@ -307,6 +321,8 @@ model AgentConversation {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([companyId, status, updatedAt])
 }
 
 enum ConversationStatus {

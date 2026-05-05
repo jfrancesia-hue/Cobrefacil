@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { updateDebtorScore } from "@/lib/debtor-scorer";
 import { runCollectionAgent } from "@/lib/agents/collection-agent";
+import { logger } from "@/lib/logger";
 import twilio from "twilio";
 
 // Verificar firma de Twilio para seguridad
@@ -64,7 +65,11 @@ export async function POST(req: Request) {
     });
 
     // Actualizar score en background (no await para no bloquear respuesta)
-    updateDebtorScore(debtor.id).catch(console.error);
+    updateDebtorScore(debtor.id).catch((err) =>
+      logger.error("Failed to update debtor score from WhatsApp webhook", err, {
+        debtorId: debtor.id,
+      })
+    );
 
     // Correr el agente IA
     let agentReply: string;
@@ -88,10 +93,18 @@ export async function POST(req: Request) {
               companyId: debtor.companyId,
             },
           })
-          .catch(console.error);
+          .catch((err) =>
+            logger.error("Failed to record WhatsApp payment intent", err, {
+              debtorId: debtor.id,
+              companyId: debtor.companyId,
+            })
+          );
       }
     } catch (err) {
-      console.error("Agent error:", err);
+      logger.error("WhatsApp agent error", err, {
+        debtorId: debtor.id,
+        companyId: debtor.companyId,
+      });
       agentReply =
         "Gracias por tu mensaje. Un asesor se comunicará con vos en breve.";
     }
